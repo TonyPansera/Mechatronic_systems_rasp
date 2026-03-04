@@ -2,92 +2,80 @@
 # File name   : MotorCtrl.py
 # Website     : www.Adeept.com
 # Author      : Adeept
-# Date        : 2025/03/21
+# Date        : 2025/03/6
 import time
-from gpiozero import Motor, OutputDevice
+from board import SCL, SDA
+import busio
+from adafruit_pca9685 import PCA9685
+from adafruit_motor import motor
 
-Motor_A_EN    = 4
-Motor_B_EN    = 17
+MOTOR_M1_IN1 =  15      #Define the positive pole of M1
+MOTOR_M1_IN2 =  14      #Define the negative pole of M1
+MOTOR_M2_IN1 =  12      #Define the positive pole of M2
+MOTOR_M2_IN2 =  13      #Define the negative pole of M2
+MOTOR_M3_IN1 =  11      #Define the positive pole of M3
+MOTOR_M3_IN2 =  10      #Define the negative pole of M3
+MOTOR_M4_IN1 =  8       #Define the positive pole of M4
+MOTOR_M4_IN2 =  9       #Define the negative pole of M4
 
-Motor_A_Pin1  = 26
-Motor_A_Pin2  = 21
-Motor_B_Pin1  = 27
-Motor_B_Pin2  = 18
+def map(x,in_min,in_max,out_min,out_max):
+  return (x - in_min)/(in_max - in_min) *(out_max - out_min) +out_min
 
-Dir_forward   = 0
-Dir_backward  = 1
+i2c = busio.I2C(SCL, SDA)
+pwm_motor = PCA9685(i2c, address=0x5f)
+pwm_motor.frequency = 50
 
-left_forward  = 1
-left_backward = 0
+motor1 = motor.DCMotor(pwm_motor.channels[MOTOR_M1_IN1],pwm_motor.channels[MOTOR_M1_IN2] )
+motor1.decay_mode = (motor.SLOW_DECAY)
+motor2 = motor.DCMotor(pwm_motor.channels[MOTOR_M2_IN1],pwm_motor.channels[MOTOR_M2_IN2] )
+motor2.decay_mode = (motor.SLOW_DECAY)
+motor3 = motor.DCMotor(pwm_motor.channels[MOTOR_M3_IN1],pwm_motor.channels[MOTOR_M3_IN2] )
+motor3.decay_mode = (motor.SLOW_DECAY)
+motor4 = motor.DCMotor(pwm_motor.channels[MOTOR_M4_IN1],pwm_motor.channels[MOTOR_M4_IN2] )
+motor4.decay_mode = (motor.SLOW_DECAY)
 
-right_forward = 0
-right_backward= 1
+def Motor(channel,direction,motor_speed):
+  if motor_speed > 100:
+    motor_speed = 100
+  elif motor_speed < 0:
+    motor_speed = 0
+  speed = map(motor_speed, 0, 100, 0, 1.0)
+  if direction == -1:
+    speed = -speed
 
-
-motor_left = Motor(forward=Motor_B_Pin1, backward=Motor_B_Pin2, enable=Motor_B_EN)
-motor_right = Motor(forward=Motor_A_Pin1, backward=Motor_A_Pin2, enable=Motor_A_EN)
+  if channel == 1:
+    motor1.throttle = speed
+  elif channel == 2:
+    motor2.throttle = speed
+  elif channel == 3:
+    motor3.throttle = speed
+  elif channel == 4:
+    motor4.throttle = speed
 
 def motorStop():#Motor stops
-    motor_left.stop()
-    motor_right.stop()
-
-
-def setup():#Motor initialization
-    pass
-
-
-def move(speed, direction, turn, radius=0.6):   # 0 < radius <= 1
-    speed = speed / 100 
-    if direction == 'forward':
-        if turn == 'right':
-            motor_left.backward(speed * radius)
-            motor_right.forward(speed)
-        elif turn == 'left':
-            motor_left.forward(speed)
-            motor_right.backward(speed * radius)
-        else:
-            motor_left.forward(speed)
-            motor_right.forward(speed)
-    elif direction == 'backward':
-        if turn == 'right':
-            motor_left.forward(speed * radius)
-            motor_right.backward(speed)
-        elif turn == 'left':
-            motor_left.backward(speed)
-            motor_right.forward(speed * radius)
-        else:
-            motor_left.backward(speed)
-            motor_right.backward(speed)
-    elif direction == 'no':
-        if turn == 'right':
-            motor_left.backward(speed)
-            motor_right.forward(speed)
-        elif turn == 'left':
-            motor_left.forward(speed)
-            motor_right.backward(speed)
-        else:
-            motorStop()
-    else:
-        pass
-
+    motor1.throttle = 0
+    motor2.throttle = 0
+    motor3.throttle = 0
+    motor4.throttle = 0
 
 def destroy():
-    motorStop()
+  motorStop()
+  pwm_motor.deinit()
 
 
 if __name__ == '__main__':
-    try:
-        speed_set = 50
-        setup()
-        for i in range(10):
-            move(speed_set, 'forward', 'no', 0.8)
-            print("Forward")
-            time.sleep(2)
-            move(speed_set, 'backward', 'no', 0.8)
-            print("backward")
-            time.sleep(2)
+  try:     
+    for i in range(10):
+      speed_set = 50
+      Motor(1, 1, speed_set)
+      Motor(2, 1, speed_set)
+      print("Forward")
+      time.sleep(2)
+      Motor(1, -1 ,speed_set)
+      Motor(2, -1 ,speed_set)
+      print("Backward")
+      time.sleep(2)
+    destroy()
+  except KeyboardInterrupt:
+    destroy()
 
-        destroy()
-    except KeyboardInterrupt:
-        destroy()
-    
